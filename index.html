@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Financial Statements Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/prop-types/prop-types.min.js"></script>
+    <script src="https://unpkg.com/recharts/umd/Recharts.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="bg-slate-100">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useRef } = React;
+        const { 
+          BarChart, Bar, LineChart, Line, AreaChart, Area, XAxis, YAxis, 
+          CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart, ReferenceLine
+        } = window.Recharts;
+
+        // --- FULL FINANCIAL MOCK DATA ---
+        const MOCK_DATA_FY2023 = {
+          incomeStatement: {
+            kpis: [
+              { title: 'Total Revenue', value: '$18.4M', change: '+14.2%', isPositive: true },
+              { title: 'Gross Profit', value: '$10.4M', change: '+12.1%', isPositive: true },
+              { title: 'Operating Margin', value: '25.6%', change: '+2.1pts', isPositive: true },
+              { title: 'Net Income', value: '$4.4M', change: '+18.4%', isPositive: true },
+            ],
+            chartData: [
+              { period: 'Q1', revenue: 4200, netIncome: 1000, margin: 23.8 },
+              { period: 'Q2', revenue: 4600, netIncome: 1080, margin: 23.5 },
+              { period: 'Q3', revenue: 4100, netIncome: 920, margin: 22.4 },
+              { period: 'Q4', revenue: 5500, netIncome: 1420, margin: 25.8 },
+            ],
+            tableData: [
+              { lineItem: 'Revenue', type: 'header', q1: null, q2: null, q3: null, q4: null },
+              { lineItem: 'Product Sales', type: 'value', q1: 3000, q2: 3200, q3: 2800, q4: 4000 },
+              { lineItem: 'Service Revenue', type: 'value', q1: 1000, q2: 1200, q3: 1100, q4: 1300 },
+              { lineItem: 'Total Revenue', type: 'subtotal', q1: 4200, q2: 4600, q3: 4100, q4: 5500 },
+              { lineItem: 'Cost of Goods Sold (COGS)', type: 'header', q1: null, q2: null, q3: null, q4: null },
+              { lineItem: 'Total COGS', type: 'expense', q1: -1800, q2: -2000, q3: -1750, q4: -2400 },
+              { lineItem: 'Gross Profit', type: 'subtotal', q1: 2400, q2: 2600, q3: 2350, q4: 3100 },
+              { lineItem: 'Operating Expenses', type: 'header', q1: null, q2: null, q3: null, q4: null },
+              { lineItem: 'Total Operating Expenses', type: 'expense', q1: -1200, q2: -1300, q3: -1250, q4: -1400 },
+              { lineItem: 'Operating Income (EBIT)', type: 'subtotal', q1: 1200, q2: 1300, q3: 1100, q4: 1700 },
+              { lineItem: 'Income Tax Expense', type: 'expense', q1: -160, q2: -180, q3: -155, q4: -270 },
+              { lineItem: 'Net Income', type: 'total', q1: 1000, q2: 1080, q3: 920, q4: 1420 },
+            ]
+          },
+          balanceSheet: {
+            kpis: [
+              { title: 'Total Assets', value: '$13.0M', change: '+12.5%', isPositive: true },
+              { title: 'Current Ratio', value: '2.14', change: '+0.12', isPositive: true },
+              { title: 'Debt to Equity', value: '0.62', change: '-0.08', isPositive: true },
+              { title: 'Working Capital', value: '$2.5M', change: '+15.2%', isPositive: true },
+            ],
+            chartData: [
+              { period: 'Q1', assets: 10500, liabilities: 5800, equity: 4700 },
+              { period: 'Q2', assets: 11530, liabilities: 5750, equity: 5780 },
+              { period: 'Q3', assets: 12200, liabilities: 5500, equity: 6700 },
+              { period: 'Q4', assets: 13020, liabilities: 5500, equity: 7520 },
+            ],
+            tableData: [
+              { lineItem: 'Assets', type: 'header', q1: null, q2: null, q3: null, q4: null },
+              { lineItem: 'Total Current Assets', type: 'subtotal', q1: 4500, q2: 5650, q3: 5950, q4: 6900 },
+              { lineItem: 'Total Non-Current Assets', type: 'subtotal', q1: 6000, q2: 5880, q3: 6250, q4: 6120 },
+              { lineItem: 'Total Assets', type: 'total', q1: 10500, q2: 11530, q3: 12200, q4: 13020 },
+              { lineItem: 'Liabilities', type: 'header', q1: null, q2: null, q3: null, q4: null },
+              { lineItem: 'Total Current Liabilities', type: 'subtotal', q1: 1800, q2: 2050, q3: 2000, q4: 2300 },
+              { lineItem: 'Total Non-Current Liabilities', type: 'subtotal', q1: 4000, q2: 3700, q3: 3500, q4: 3200 },
+              { lineItem: 'Total Liabilities', type: 'subtotal', q1: 5800, q2: 5750, q3: 5500, q4: 5500 },
+              { lineItem: 'Shareholder Equity', type: 'header', q1: null, q2: null, q3: null, q4: null },
+              { lineItem: 'Total Shareholder Equity', type: 'subtotal', q1: 4700, q2: 5780, q3: 6700, q4: 7520 },
+              { lineItem: 'Total Liabilities & Equity', type: 'total', q1: 10500, q2: 11530, q3: 12200, q4: 13020 },
+            ]
+          },
+          cashFlow: {
+            kpis: [
+              { title: 'Operating Cash Flow', value: '$5.8M', change: '+22.4%', isPositive: true },
+              { title: 'Capital Expenditures', value: '$-1.3M', change: '-15.0%', isPositive: false },
+              { title: 'Free Cash Flow', value: '$4.5M', change: '+8.4%', isPositive: true },
+              { title: 'Ending Cash Balance', value: '$3.15M', change: '+45.2%', isPositive: true },
+            ],
+            chartData: [
+              { period: 'Q1', operating: 1400, investing: -500, financing: -200, net: 700 },
+              { period: 'Q2', operating: 1150, investing: -200, financing: -100, net: 850 },
+              { period: 'Q3', operating: 1400, investing: -700, financing: -200, net: 500 },
+              { period: 'Q4', operating: 1850, investing: -250, financing: -1000, net: 600 },
+            ],
+            tableData: [
+              { lineItem: 'Operating Activities', type: 'header', q1: null, q2: null, q3: null, q4: null },
+              { lineItem: 'Cash from Operations', type: 'subtotal', q1: 1400, q2: 1150, q3: 1400, q4: 1850 },
+              { lineItem: 'Investing Activities', type: 'header', q1: null, q2: null, q3: null, q4: null },
+              { lineItem: 'Capital Expenditures (CapEx)', type: 'expense', q1: -500, q2: -200, q3: -700, q4: -250 },
+              { lineItem: 'Cash from Investing', type: 'subtotal', q1: -500, q2: -200, q3: -700, q4: -250 },
+              { lineItem: 'Financing Activities', type: 'header', q1: null, q2: null, q3: null, q4: null },
+              { lineItem: 'Cash from Financing', type: 'subtotal', q1: -200, q2: -100, q3: -200, q4: -1000 },
+              { lineItem: 'Net Change in Cash', type: 'total', q1: 700, q2: 850, q3: 500, q4: 600 },
+              { lineItem: 'Beginning Cash Balance', type: 'value', q1: 500, q2: 1200, q3: 2050, q4: 2550 },
+              { lineItem: 'Ending Cash Balance', type: 'total', q1: 1200, q2: 2050, q3: 2550, q4: 3150 },
+            ]
+          },
+          equity: {
+            kpis: [
+              { title: 'Beginning Equity', value: '$3.70M', change: '-', isPositive: true },
+              { title: 'Net Income Added', value: '$4.42M', change: '+18.4%', isPositive: true },
+              { title: 'Dividends Paid', value: '$-0.70M', change: '+0.0%', isPositive: true },
+              { title: 'Ending Equity', value: '$7.52M', change: '+48.6%', isPositive: true },
+            ],
+            chartData: [
+              { period: 'Q1', beginning: 3700, netIncome: 1000, dividends: 0, ending: 4700 },
+              { period: 'Q2', beginning: 4700, netIncome: 1080, dividends: 0, ending: 5780 },
+              { period: 'Q3', beginning: 5780, netIncome: 920, dividends: 0, ending: 6700 },
+              { period: 'Q4', beginning: 6700, netIncome: 1420, dividends: -700, ending: 7520 },
+            ],
+            tableData: [
+              { lineItem: 'Beginning Balance', type: 'value', q1: 1700, q2: 2700, q3: 3780, q4: 4700 },
+              { lineItem: 'Add: Net Income', type: 'value', q1: 1000, q2: 1080, q3: 920, q4: 1420 },
+              { lineItem: 'Less: Dividends Paid', type: 'expense', q1: 0, q2: 0, q3: 0, q4: -700 },
+              { lineItem: 'Ending Retained Earnings', type: 'subtotal', q1: 2700, q2: 3780, q3: 4700, q4: 5520 },
+              { lineItem: 'Total Shareholder Equity', type: 'total', q1: 4700, q2: 5780, q3: 6700, q4: 7520 },
+            ]
+          }
+        };
+
+        const MOCK_DATA_FY2022 = JSON.parse(JSON.stringify(MOCK_DATA_FY2023));
+        Object.keys(MOCK_DATA_FY2022).forEach(statement => {
+          MOCK_DATA_FY2022[statement].kpis.forEach(kpi => {
+            kpi.change = '-';
+            if (kpi.value.includes('$')) {
+              const num = parseFloat(kpi.value.replace(/[^0-9.-]+/g,""));
+              kpi.value = `$${(num * 0.85).toFixed(1)}M`;
+            }
+          });
+          MOCK_DATA_FY2022[statement].chartData.forEach(d => {
+            for (let key in d) {
+              if (typeof d[key] === 'number' && key !== 'margin') {
+                d[key] = Math.round(d[key] * 0.85);
+              }
+            }
+          });
+          MOCK_DATA_FY2022[statement].tableData.forEach(r => {
+            ['q1', 'q2', 'q3', 'q4'].forEach(q => {
+              if (typeof r[q] === 'number') {
+                r[q] = Math.round(r[q] * 0.85);
+              }
+            });
+          });
+        });
+
+        const INITIAL_DB = {
+          'FY2023': MOCK_DATA_FY2023,
+          'FY2022': MOCK_DATA_FY2022
+        };
+
+        const formatCurrency = (value) => `$${(value / 1000).toFixed(1)}M`;
+        const formatStandard = (value) => `$${value.toLocaleString()}k`;
+
+        const KPIBlock = ({ kpis }) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            {kpis.map((kpi, index) => (
+              <div key={index} className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                <div className="flex justify-between items-start mb-2">
+                  <span className="text-sm font-medium text-slate-500">{kpi.title}</span>
+                  <span className={`flex items-center text-xs font-bold px-2 py-1 rounded-full ${kpi.change === '-' ? 'bg-slate-100 text-slate-600' : kpi.isPositive ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
+                    {kpi.change !== '-' && (kpi.isPositive ? "↗️ " : "↘️ ")}
+                    {kpi.change}
+                  </span>
+                </div>
+                <h2 className="text-2xl font-bold text-slate-900">{kpi.value}</h2>
+              </div>
+            ))}
+          </div>
+        );
+
+        const DataTable = ({ title, data, showTotalColumn = true }) => {
+          const formatCell = (val) => {
+            if (val === null || val === undefined) return '';
+            if (val === 0) return '-';
+            if (val < 0) return `($${Math.abs(val).toLocaleString()})`;
+            return `$${val.toLocaleString()}`;
+          };
+
+          return (
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+              <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                <h3 className="text-lg font-bold text-slate-800">{title} (in $000s)</h3>
+              </div>
+              <div className="overflow-x-auto flex-grow p-5 pt-0 mt-4">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="text-slate-500 text-xs font-bold uppercase tracking-wider border-b-2 border-slate-800">
+                      <th className="pb-3 w-1/3">Line Item</th>
+                      <th className="pb-3 text-right">Q1</th>
+                      <th className="pb-3 text-right">Q2</th>
+                      <th className="pb-3 text-right">Q3</th>
+                      <th className="pb-3 text-right">Q4</th>
+                      {showTotalColumn && <th className="pb-3 text-right text-indigo-700">FY Total</th>}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {data.map((row, i) => {
+                      const total = (row.q1 || 0) + (row.q2 || 0) + (row.q3 || 0) + (row.q4 || 0);
+                      const isHeader = row.type === 'header';
+                      return (
+                        <tr key={i} className={`
+                          ${isHeader ? 'font-bold text-slate-900 bg-slate-50/80 border-t-2 border-slate-200' : ''}
+                          ${row.type === 'subtotal' ? 'font-semibold text-slate-800 bg-slate-50' : ''}
+                          ${row.type === 'total' ? 'font-bold text-indigo-900 bg-indigo-50/30 border-t-2 border-indigo-200' : ''}
+                          ${row.type === 'expense' ? 'text-slate-600' : 'text-slate-700'}
+                          hover:bg-slate-50/50 transition-colors
+                        `}>
+                          <td className={`py-2.5 ${row.type === 'expense' || row.type === 'value' ? 'pl-6' : ''}`}>{row.lineItem}</td>
+                          <td className={`py-2.5 text-right ${row.q1 < 0 ? 'text-rose-600' : ''}`}>{formatCell(row.q1)}</td>
+                          <td className={`py-2.5 text-right ${row.q2 < 0 ? 'text-rose-600' : ''}`}>{formatCell(row.q2)}</td>
+                          <td className={`py-2.5 text-right ${row.q3 < 0 ? 'text-rose-600' : ''}`}>{formatCell(row.q3)}</td>
+                          <td className={`py-2.5 text-right ${row.q4 < 0 ? 'text-rose-600' : ''}`}>{formatCell(row.q4)}</td>
+                          {showTotalColumn && <td className={`py-2.5 text-right font-bold ${total < 0 ? 'text-rose-700' : isHeader ? '' : 'text-indigo-700'}`}>{isHeader ? '' : formatCell(total)}</td>}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          );
+        };
+
+        const parseCSVLine = (text) => {
+          let ret = [], inQuote = false, value = '';
+          for (let char of text) {
+            if (char === '"') inQuote = !inQuote;
+            else if (char === ',' && !inQuote) { ret.push(value); value = ''; }
+            else value += char;
+          }
+          ret.push(value);
+          return ret;
+        };
+
+        const parseCSV = (csvText) => {
+          const lines = csvText.split('\n').filter(l => l.trim() !== '');
+          const newDataByYear = {};
+
+          for(let i=1; i<lines.length; i++) {
+            const cols = parseCSVLine(lines[i]);
+            if(cols.length >= 8) {
+               const year = cols[0].trim(), statement = cols[1].trim();
+               if (!newDataByYear[year]) {
+                  newDataByYear[year] = {
+                    incomeStatement: { kpis: [], chartData: [], tableData: [] },
+                    balanceSheet: { kpis: [], chartData: [], tableData: [] },
+                    cashFlow: { kpis: [], chartData: [], tableData: [] },
+                    equity: { kpis: [], chartData: [], tableData: [] }
+                  };
+               }
+               if(newDataByYear[year][statement]) {
+                  newDataByYear[year][statement].tableData.push({
+                     lineItem: cols[3].trim(), type: cols[2].trim(),
+                     q1: parseFloat(cols[4]) || null, q2: parseFloat(cols[5]) || null,
+                     q3: parseFloat(cols[6]) || null, q4: parseFloat(cols[7]) || null,
+                  });
+               }
+            }
+          }
+
+          Object.keys(newDataByYear).forEach(year => {
+            const data = newDataByYear[year];
+            const getRow = (tab, name) => data[tab].tableData.find(r => r.lineItem === name) || {};
+            const qs = ['q1', 'q2', 'q3', 'q4'];
+            
+            data.incomeStatement.chartData = qs.map((q, i) => {
+               const rev = getRow('incomeStatement', 'Total Revenue')[q] || 0;
+               const net = getRow('incomeStatement', 'Net Income')[q] || 0;
+               return { period: `Q${i+1}`, revenue: rev, netIncome: net, margin: rev ? parseFloat(((net/rev)*100).toFixed(1)) : 0 };
+            });
+
+            data.balanceSheet.chartData = qs.map((q, i) => ({
+               period: `Q${i+1}`, assets: getRow('balanceSheet', 'Total Assets')[q] || 0,
+               liabilities: getRow('balanceSheet', 'Total Liabilities')[q] || 0,
+               equity: getRow('balanceSheet', 'Total Shareholder Equity')[q] || 0,
+            }));
+
+            data.cashFlow.chartData = qs.map((q, i) => ({
+               period: `Q${i+1}`, operating: getRow('cashFlow', 'Cash from Operations')[q] || 0,
+               investing: getRow('cashFlow', 'Cash from Investing')[q] || 0,
+               financing: getRow('cashFlow', 'Cash from Financing')[q] || 0,
+               net: getRow('cashFlow', 'Net Change in Cash')[q] || 0,
+            }));
+
+            data.equity.chartData = qs.map((q, i) => ({
+               period: `Q${i+1}`, beginning: getRow('equity', 'Beginning Balance')[q] || 0,
+               netIncome: getRow('equity', 'Add: Net Income')[q] || 0,
+               dividends: getRow('equity', 'Less: Dividends Paid')[q] || 0,
+               ending: getRow('equity', 'Ending Retained Earnings')[q] || 0,
+            }));
+
+            const sumQs = (row) => qs.reduce((sum, q) => sum + (row[q] || 0), 0);
+            const totalRev = sumQs(getRow('incomeStatement', 'Total Revenue'));
+            const totalNet = sumQs(getRow('incomeStatement', 'Net Income'));
+
+            data.incomeStatement.kpis = [
+               { title: 'Total Revenue', value: formatCurrency(totalRev), change: '-', isPositive: true },
+               { title: 'Gross Profit', value: formatCurrency(sumQs(getRow('incomeStatement', 'Gross Profit'))), change: '-', isPositive: true },
+               { title: 'Operating Margin', value: totalRev ? `${((totalNet/totalRev)*100).toFixed(1)}%` : '0%', change: '-', isPositive: true },
+               { title: 'Net Income', value: formatCurrency(totalNet), change: '-', isPositive: true },
+            ];
+            data.balanceSheet.kpis = [
+               { title: 'Total Assets', value: formatCurrency(getRow('balanceSheet', 'Total Assets')['q4'] || 0), change: '-', isPositive: true },
+               { title: 'Current Ratio', value: 'N/A', change: '-', isPositive: true },
+               { title: 'Debt to Equity', value: 'N/A', change: '-', isPositive: true },
+               { title: 'Working Capital', value: 'N/A', change: '-', isPositive: true },
+            ];
+            data.cashFlow.kpis = [
+               { title: 'Operating Cash Flow', value: formatCurrency(sumQs(getRow('cashFlow', 'Cash from Operations'))), change: '-', isPositive: true },
+               { title: 'Capital Expenditures', value: formatCurrency(sumQs(getRow('cashFlow', 'Capital Expenditures (CapEx)'))), change: '-', isPositive: false },
+               { title: 'Free Cash Flow', value: 'N/A', change: '-', isPositive: true },
+               { title: 'Ending Cash Balance', value: formatCurrency(getRow('cashFlow', 'Ending Cash Balance')['q4'] || 0), change: '-', isPositive: true },
+            ];
+            data.equity.kpis = [
+               { title: 'Beginning Equity', value: formatCurrency(getRow('equity', 'Beginning Balance')['q1'] || 0), change: '-', isPositive: true },
+               { title: 'Net Income Added', value: formatCurrency(sumQs(getRow('equity', 'Add: Net Income'))), change: '-', isPositive: true },
+               { title: 'Dividends Paid', value: formatCurrency(Math.abs(sumQs(getRow('equity', 'Less: Dividends Paid')))), change: '-', isPositive: true },
+               { title: 'Ending Equity', value: formatCurrency(getRow('equity', 'Ending Retained Earnings')['q4'] || 0), change: '-', isPositive: true },
+            ];
+          });
+          return newDataByYear;
+        };
+
+        const generateCSV = (db) => {
+          let csv = 'FiscalYear,Statement,Type,LineItem,Q1,Q2,Q3,Q4\n';
+          Object.keys(db).forEach(year => {
+            Object.keys(db[year]).forEach(key => {
+              db[year][key].tableData.forEach(row => {
+                const safeLineItem = `"${row.lineItem.replace(/"/g, '""')}"`;
+                csv += `${year},${key},${row.type},${safeLineItem},${row.q1||''},${row.q2||''},${row.q3||''},${row.q4||''}\n`;
+              });
+            });
+          });
+          return csv;
+        };
+
+        const App = () => {
+          const [activeTab, setActiveTab] = useState('income');
+          const [allData, setAllData] = useState(INITIAL_DB);
+          const [timeframe, setTimeframe] = useState('FY2023');
+          const fileInputRef = useRef(null);
+
+          const financialData = allData[timeframe] || allData[Object.keys(allData)[0]];
+          const availableYears = Object.keys(allData).sort((a,b) => b.localeCompare(a));
+
+          const handleFileUpload = (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+            if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+              alert("Please open your file in Excel and click 'Save As -> CSV' before uploading.");
+              event.target.value = null; return;
+            }
+            const reader = new FileReader();
+            reader.onload = (e) => {
+              try {
+                const uploadedData = parseCSV(e.target.result);
+                const uploadedYears = Object.keys(uploadedData);
+                if (uploadedYears.length > 0 && uploadedData[uploadedYears[0]].incomeStatement.tableData.length > 0) {
+                  setAllData(uploadedData);
+                  setTimeframe(uploadedYears.sort((a,b) => b.localeCompare(a))[0]);
+                } else alert("Invalid CSV format. Please download the template to see the required layout.");
+              } catch (error) { alert("Error parsing file."); }
+            };
+            reader.readAsText(file);
+            event.target.value = null;
+          };
+
+          const handleDownloadTemplate = () => {
+            const csvContent = generateCSV(allData); 
+            const dataStr = "data:text/csv;charset=utf-8," + encodeURIComponent(csvContent);
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr);
+            downloadAnchorNode.setAttribute("download", "financial_template.csv");
+            document.body.appendChild(downloadAnchorNode); 
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+          };
+
+          const tabs = [
+            { id: 'income', label: 'Income Statement', icon: '📈' },
+            { id: 'balance', label: 'Balance Sheet', icon: '🏛️' },
+            { id: 'cashflow', label: 'Cash Flow', icon: '💸' },
+            { id: 'equity', label: 'Statement of Equity', icon: '🥧' },
+          ];
+
+          return (
+            <div className="min-h-screen bg-slate-100 p-4 md:p-6 font-sans text-slate-900">
+              <header className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="p-2 bg-indigo-600 rounded-lg text-white">💼</div>
+                    <h1 className="text-2xl font-bold text-slate-900">Acme Corp Financials</h1>
+                  </div>
+                  <p className="text-slate-500 text-sm ml-11">Consolidated Financial Statements Overview</p>
+                </div>
+                
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3 py-2 shadow-sm">
+                    <span className="text-slate-500">📅</span>
+                    <select value={timeframe} onChange={(e) => setTimeframe(e.target.value)} className="text-sm font-medium text-slate-700 bg-transparent outline-none cursor-pointer">
+                      {availableYears.map(year => <option key={year} value={year}>{year}</option>)}
+                    </select>
+                  </div>
+                  
+                  <input type="file" accept=".csv, .xlsx, .xls" ref={fileInputRef} onChange={handleFileUpload} className="hidden" />
+                  <button onClick={() => fileInputRef.current.click()} className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 shadow-sm">
+                    📤 Upload Data
+                  </button>
+                  <button onClick={handleDownloadTemplate} className="flex items-center gap-2 px-4 py-2 bg-slate-900 rounded-lg text-sm font-medium text-white hover:bg-slate-800 shadow-sm">
+                    📥 Template
+                  </button>
+                </div>
+              </header>
+
+              <div className="flex overflow-x-auto space-x-2 mb-6 pb-2">
+                {tabs.map((tab) => {
+                  const isActive = activeTab === tab.id;
+                  return (
+                    <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${isActive ? 'bg-indigo-600 text-white shadow-md' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 hover:text-indigo-600'}`}>
+                      <span>{tab.icon}</span> {tab.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {activeTab === 'income' && financialData && (
+                <div>
+                  <KPIBlock kpis={financialData.incomeStatement.kpis} />
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm lg:col-span-3">
+                      <h3 className="text-lg font-bold mb-4">Revenue vs. Net Income Trajectory</h3>
+                      <div className="h-[300px] w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <ComposedChart data={financialData.incomeStatement.chartData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                            <XAxis dataKey="period" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dy={10} />
+                            <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} tickFormatter={formatCurrency} />
+                            <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} tickFormatter={(val) => `${val}%`} domain={[0, 40]} />
+                            <Tooltip formatter={(val, name) => [name === 'Net Margin' ? `${val}%` : formatStandard(val), name]} />
+                            <Legend wrapperStyle={{ paddingTop: '10px' }} />
+                            <Bar yAxisId="left" dataKey="revenue" name="Total Revenue" fill="#3b82f6" radius={[4, 4, 0, 0]} maxBarSize={60} />
+                            <Bar yAxisId="left" dataKey="netIncome" name="Net Income" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={60} />
+                            <Line yAxisId="right" type="monotone" dataKey="margin" name="Net Margin" stroke="#f59e0b" strokeWidth={3} dot={{r: 4}} />
+                          </ComposedChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  </div>
+                  <DataTable title="Consolidated P&L Statement" data={financialData.incomeStatement.tableData} />
+                </div>
+              )}
+
+              {activeTab === 'balance' && financialData && (
+                <div>
+                  <KPIBlock kpis={financialData.balanceSheet.kpis} />
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm lg:col-span-3">
+                      <h3 className="text-lg font-bold mb-4">Assets vs. Liabilities & Equity</h3>
+                      <div className="h-[300px] w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={financialData.balanceSheet.chartData} margin={{ top: 20, right: 0, left: -20, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                            <XAxis dataKey="period" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dy={10} />
+                            <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} tickFormatter={formatCurrency} />
+                            <Tooltip formatter={(val) => formatStandard(val)} cursor={{fill: 'transparent'}} />
+                            <Legend wrapperStyle={{ paddingTop: '10px' }} />
+                            <Bar dataKey="assets" name="Total Assets" fill="#0284c7" radius={[4, 4, 0, 0]} maxBarSize={60} />
+                            <Bar dataKey="liabilities" name="Total Liabilities" stackId="le" fill="#ea580c" maxBarSize={60} />
+                            <Bar dataKey="equity" name="Shareholder Equity" stackId="le" fill="#8b5cf6" radius={[4, 4, 0, 0]} maxBarSize={60} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  </div>
+                  <DataTable title="Balance Sheet" data={financialData.balanceSheet.tableData} showTotalColumn={false} />
+                </div>
+              )}
+
+              {activeTab === 'cashflow' && financialData && (
+                <div>
+                  <KPIBlock kpis={financialData.cashFlow.kpis} />
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm lg:col-span-3">
+                      <h3 className="text-lg font-bold mb-4">Cash Flow Activities</h3>
+                      <div className="h-[300px] w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={financialData.cashFlow.chartData} stackOffset="sign" margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                            <XAxis dataKey="period" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dy={10} />
+                            <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} tickFormatter={formatCurrency} />
+                            <Tooltip cursor={{fill: '#f8fafc'}} formatter={(val) => formatStandard(val)} />
+                            <Legend wrapperStyle={{ paddingTop: '10px' }} />
+                            <ReferenceLine y={0} stroke="#cbd5e1" />
+                            <Bar dataKey="operating" name="Operating Cash Flow" fill="#10b981" stackId="stack" radius={[4, 4, 0, 0]} maxBarSize={60} />
+                            <Bar dataKey="investing" name="Investing Cash Flow" fill="#f43f5e" stackId="stack" maxBarSize={60} />
+                            <Bar dataKey="financing" name="Financing Cash Flow" fill="#8b5cf6" stackId="stack" radius={[0, 0, 4, 4]} maxBarSize={60} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  </div>
+                  <DataTable title="Statement of Cash Flows" data={financialData.cashFlow.tableData} />
+                </div>
+              )}
+
+              {activeTab === 'equity' && financialData && (
+                <div>
+                  <KPIBlock kpis={financialData.equity.kpis} />
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm lg:col-span-3">
+                      <h3 className="text-lg font-bold mb-4">Retained Earnings & Equity Walk</h3>
+                      <div className="h-[300px] w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={financialData.equity.chartData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
+                            <defs>
+                              <linearGradient id="colorEquity" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3}/>
+                                <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
+                              </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                            <XAxis dataKey="period" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dy={10} />
+                            <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} tickFormatter={formatCurrency} domain={[0, 'dataMax + 2000']} />
+                            <Tooltip formatter={(val) => formatStandard(val)} />
+                            <Legend wrapperStyle={{ paddingTop: '10px' }} />
+                            <Area type="monotone" dataKey="ending" name="Ending Equity" stroke="#8b5cf6" strokeWidth={3} fillOpacity={1} fill="url(#colorEquity)" />
+                            <Bar dataKey="netIncome" name="Net Income Added" fill="#10b981" maxBarSize={40} />
+                            <Bar dataKey="dividends" name="Dividends Paid" fill="#f43f5e" maxBarSize={40} />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  </div>
+                  <DataTable title="Statement of Shareholder Equity" data={financialData.equity.tableData} showTotalColumn={false} />
+                </div>
+              )}
+            </div>
+          );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
